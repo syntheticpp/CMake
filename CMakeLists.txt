@@ -607,6 +607,9 @@ ADD_SUBDIRECTORY(Source)
 ADD_SUBDIRECTORY(Utilities)
 ADD_SUBDIRECTORY(Tests)
 
+SET(ninja_srcdir ${CMAKE_SOURCE_DIR}/ninja)
+ADD_SUBDIRECTORY(ninja)
+
 if(BUILD_TESTING)
   CMAKE_SET_TARGET_FOLDER(CMakeLibTests "Tests")
 endif()
