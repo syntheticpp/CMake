@@ -198,7 +198,9 @@ cmNinjaNormalTargetGenerator
 
   if (this->TargetNameOut != this->TargetNameReal) {
     std::string cmakeCommand =
-      this->GetMakefile()->GetRequiredDefinition("CMAKE_COMMAND");
+      this->GetLocalGenerator()->ConvertToOutputFormat(
+        this->GetMakefile()->GetRequiredDefinition("CMAKE_COMMAND"),
+        cmLocalGenerator::SHELL);
     if (targetType == cmTarget::EXECUTABLE)
       this->GetGlobalGenerator()->AddRule("CMAKE_SYMLINK_EXECUTABLE",
                                           cmakeCommand +
@@ -238,7 +240,9 @@ cmNinjaNormalTargetGenerator
       // We have archive link commands set. First, delete the existing archive.
       std::vector<std::string> linkCmds;
       std::string cmakeCommand =
-        this->GetMakefile()->GetRequiredDefinition("CMAKE_COMMAND");
+        this->GetLocalGenerator()->ConvertToOutputFormat(
+          this->GetMakefile()->GetRequiredDefinition("CMAKE_COMMAND"),
+          cmLocalGenerator::SHELL);
       linkCmds.push_back(cmakeCommand + " -E remove $out");
 
       // TODO: Use ARCHIVE_APPEND for archives over a certain size.
@@ -377,9 +381,12 @@ void cmNinjaNormalTargetGenerator::WriteLinkStatement()
 
   // If we have any PRE_LINK commands, we need to go back to HOME_OUTPUT for
   // the link commands.
-  if (!preLinkCmdLines.empty())
-    preLinkCmdLines.push_back(std::string("cd ") +
-                              this->GetMakefile()->GetHomeOutputDirectory());
+  if (!preLinkCmdLines.empty()) {
+    std::string path = this->GetLocalGenerator()->ConvertToOutputFormat(
+      this->GetMakefile()->GetHomeOutputDirectory(),
+      cmLocalGenerator::SHELL);
+    preLinkCmdLines.push_back("cd " + path);
+  }
 
   vars["PRE_LINK"] =
     this->GetLocalGenerator()->BuildCommandLine(preLinkCmdLines);

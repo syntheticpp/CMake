@@ -28,6 +28,9 @@ cmLocalNinjaGenerator::cmLocalNinjaGenerator()
   , HomeRelativeOutputPath("")
 {
   this->IsMakefileGenerator = true;
+#ifdef _WIN32
+  this->WindowsShell = true;
+#endif
 }
 
 //----------------------------------------------------------------------------
@@ -256,9 +259,11 @@ void cmLocalNinjaGenerator::WriteProcessedMakefile(std::ostream& os)
 
 std::string cmLocalNinjaGenerator::ConvertToNinjaPath(const char *path)
 {
-  return this->Convert(path,
-                       cmLocalGenerator::HOME_OUTPUT,
-                       cmLocalGenerator::MAKEFILE);
+  std::string convPath = this->Convert(path, cmLocalGenerator::HOME_OUTPUT);
+#ifdef _WIN32
+  cmSystemTools::ReplaceString(convPath, "/", "\\");
+#endif
+  return convPath;
 }
 
 void
@@ -320,16 +325,17 @@ void cmLocalNinjaGenerator::AppendCustomCommandLines(const cmCustomCommand *cc,
 {
   cmCustomCommandGenerator ccg(*cc, this->GetConfigName(), this->Makefile);
   if (ccg.GetNumberOfCommands() > 0) {
+    const char* wd = cc->GetWorkingDirectory();
+    if (!wd)
+      wd = this->GetMakefile()->GetStartOutputDirectory();
+
     std::ostringstream cdCmd;
-    cdCmd << "cd ";
-    if (const char* wd = cc->GetWorkingDirectory())
-      cdCmd << wd;
-    else
-      cdCmd << this->GetMakefile()->GetStartOutputDirectory();
+    cdCmd << "cd " << this->ConvertToOutputFormat(wd, SHELL);
     cmdLines.push_back(cdCmd.str());
   }
   for (unsigned i = 0; i != ccg.GetNumberOfCommands(); ++i) {
-    cmdLines.push_back(ccg.GetCommand(i));
+    cmdLines.push_back(this->ConvertToOutputFormat(ccg.GetCommand(i).c_str(),
+                                                   SHELL));
     std::string& cmd = cmdLines.back();
     ccg.AppendArguments(i, cmd);
   }
