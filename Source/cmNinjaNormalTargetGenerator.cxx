@@ -224,6 +224,7 @@ std::vector<std::string>
 cmNinjaNormalTargetGenerator
 ::ComputeLinkCmd()
 {
+  std::vector<std::string> linkCmds;
   cmTarget::TargetType targetType = this->GetTarget()->GetType();
   switch (targetType) {
     case cmTarget::STATIC_LIBRARY: {
@@ -235,12 +236,12 @@ cmNinjaNormalTargetGenerator
       if (const char *linkCmd =
             this->GetMakefile()->GetDefinition(linkCmdVar.c_str()))
         {
-        return std::vector<std::string>(1, linkCmd);
+        cmSystemTools::ExpandListArgument(linkCmd, linkCmds);
+        return linkCmds;
         }
       }
 
       // We have archive link commands set. First, delete the existing archive.
-      std::vector<std::string> linkCmds;
       std::string cmakeCommand =
         this->GetLocalGenerator()->ConvertToOutputFormat(
           this->GetMakefile()->GetRequiredDefinition("CMAKE_COMMAND"),
@@ -254,7 +255,7 @@ cmNinjaNormalTargetGenerator
       linkCmdVar += "_ARCHIVE_CREATE";
       const char *linkCmd =
         this->GetMakefile()->GetRequiredDefinition(linkCmdVar.c_str());
-      linkCmds.push_back(linkCmd);
+      cmSystemTools::ExpandListArgument(linkCmd, linkCmds);
       }
       {
       std::string linkCmdVar = "CMAKE_";
@@ -262,7 +263,7 @@ cmNinjaNormalTargetGenerator
       linkCmdVar += "_ARCHIVE_FINISH";
       const char *linkCmd =
         this->GetMakefile()->GetRequiredDefinition(linkCmdVar.c_str());
-      linkCmds.push_back(linkCmd);
+      cmSystemTools::ExpandListArgument(linkCmd, linkCmds);
       }
       return linkCmds;
     }
@@ -286,7 +287,8 @@ cmNinjaNormalTargetGenerator
       }
       const char *linkCmd =
         this->GetMakefile()->GetRequiredDefinition(linkCmdVar.c_str());
-      return std::vector<std::string>(1, linkCmd);
+      cmSystemTools::ExpandListArgument(linkCmd, linkCmds);
+      return linkCmds;
     }
     default:
       assert(0 && "Unexpected target type");
