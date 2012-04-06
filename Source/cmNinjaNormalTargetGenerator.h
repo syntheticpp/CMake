@@ -32,7 +32,11 @@ private:
   void WriteLanguagesRules();
   void WriteLinkRule();
   void WriteLinkStatement();
+  void WriteObjectLibStatement();
   std::vector<std::string> ComputeLinkCmd();
+
+  void EnsureDirectoryExists(const std::string& dir);
+  void EnsureParentDirectoryExists(const std::string& path);
 
 private:
   // Target name info.

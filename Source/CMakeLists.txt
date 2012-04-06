@@ -185,6 +185,8 @@ SET(SRCS
   cmGeneratedFileStream.cxx
   cmGeneratorExpression.cxx
   cmGeneratorExpression.h
+  cmGeneratorTarget.cxx
+  cmGeneratorTarget.h
   cmGlobalGenerator.cxx
   cmGlobalGenerator.h
   cmGlobalUnixMakefileGenerator3.cxx
@@ -358,7 +360,11 @@ set(_CMAKE_DEFAULT_NINJA_VALUE TRUE)
 # turn it off for platforms where it does not pass all the
 # tests
 if(WIN32 OR APPLE)
-  #SET(_CMAKE_DEFAULT_NINJA_VALUE FALSE)
+  if(NINJA)
+    SET(_CMAKE_DEFAULT_NINJA_VALUE TRUE)
+  else()
+    SET(_CMAKE_DEFAULT_NINJA_VALUE FALSE)
+  endif()
 endif()
 SET(CMAKE_ENABLE_NINJA ${_CMAKE_DEFAULT_NINJA_VALUE} CACHE BOOL
     "Enable the ninja generator for CMake. currently not fully working for Windows or OSX")
@@ -382,7 +388,6 @@ IF(CMAKE_ENABLE_NINJA)
 ELSE()
   MESSAGE(STATUS "Disable ninja generator.")
 ENDIF()
-
 
 # create a library used by the command line and the GUI
 ADD_LIBRARY(CMakeLib ${SRCS})

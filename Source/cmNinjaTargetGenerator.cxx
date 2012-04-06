@@ -14,6 +14,7 @@
 #include "cmGlobalNinjaGenerator.h"
 #include "cmLocalNinjaGenerator.h"
 #include "cmGeneratedFileStream.h"
+#include "cmGeneratorTarget.h"
 #include "cmNinjaNormalTargetGenerator.h"
 #include "cmNinjaUtilityTargetGenerator.h"
 #include "cmSystemTools.h"
@@ -33,6 +34,7 @@ cmNinjaTargetGenerator::New(cmTarget* target)
       case cmTarget::SHARED_LIBRARY:
       case cmTarget::STATIC_LIBRARY:
       case cmTarget::MODULE_LIBRARY:
+      case cmTarget::OBJECT_LIBRARY:
         return new cmNinjaNormalTargetGenerator(target);
 
       case cmTarget::UTILITY:
@@ -60,6 +62,8 @@ cmNinjaTargetGenerator::cmNinjaTargetGenerator(cmTarget* target)
       static_cast<cmLocalNinjaGenerator*>(Makefile->GetLocalGenerator())),
     Objects()
 {
+  this->GeneratorTarget =
+    this->GetGlobalGenerator()->GetGeneratorTarget(target);
 }
 
 cmNinjaTargetGenerator::~cmNinjaTargetGenerator()
@@ -218,7 +222,8 @@ ComputeDefines(cmSourceFile *source, const std::string& language)
 cmNinjaDeps cmNinjaTargetGenerator::ComputeLinkDeps() const
 {
   // Static libraries never depend on other targets for linking.
-  if (this->Target->GetType() == cmTarget::STATIC_LIBRARY)
+  if (this->Target->GetType() == cmTarget::STATIC_LIBRARY ||
+      this->Target->GetType() == cmTarget::OBJECT_LIBRARY)
     return cmNinjaDeps();
 
   cmComputeLinkInformation* cli =
@@ -253,7 +258,10 @@ cmNinjaTargetGenerator
   std::string path = this->LocalGenerator->GetHomeRelativeOutputPath();
   if(!path.empty())
     path += "/";
-  path += this->LocalGenerator->GetObjectFileName(*this->Target, *source);
+  std::string const& objectName = this->GeneratorTarget->Objects[source];
+  path += this->LocalGenerator->GetTargetDirectory(*this->Target);
+  path += "/";
+  path += objectName;
   return path;
 }
 
@@ -331,6 +339,10 @@ cmNinjaTargetGenerator
     depfile = "$out.d";
     cmSystemTools::ReplaceString(depfileFlagsStr, "<DEPFILE>",
                                  depfile.c_str());
+    cmSystemTools::ReplaceString(depfileFlagsStr, "<OBJECT>",
+                                 "$out");
+    cmSystemTools::ReplaceString(depfileFlagsStr, "<CMAKE_C_COMPILER>",
+                       this->GetMakefile()->GetDefinition("CMAKE_C_COMPILER"));
     flags += " " + depfileFlagsStr;
   }
   vars.Flags = flags.c_str();
@@ -377,12 +389,42 @@ cmNinjaTargetGenerator
     << this->GetTargetName()
     << "\n\n";
 
-  // For each source files of this target.
-  for(std::vector<cmSourceFile*>::const_iterator i =
-        this->GetTarget()->GetSourceFiles().begin();
-      i != this->GetTarget()->GetSourceFiles().end();
-      ++i)
-    this->WriteObjectBuildStatement(*i);
+  for(std::vector<cmSourceFile*>::const_iterator
+        si = this->GeneratorTarget->CustomCommands.begin();
+      si != this->GeneratorTarget->CustomCommands.end(); ++si)
+     {
+     cmCustomCommand const* cc = (*si)->GetCustomCommand();
+     this->GetLocalGenerator()->AddCustomCommandTarget(cc, this->GetTarget());
+     }
+  // TODO: this->GeneratorTarget->OSXContent
+  for(std::vector<cmSourceFile*>::const_iterator
+        si = this->GeneratorTarget->ExternalObjects.begin();
+      si != this->GeneratorTarget->ExternalObjects.end(); ++si)
+    {
+    this->Objects.push_back(this->GetSourceFilePath(*si));
+    }
+  for(std::vector<cmSourceFile*>::const_iterator
+        si = this->GeneratorTarget->ObjectSources.begin();
+      si != this->GeneratorTarget->ObjectSources.end(); ++si)
+    {
+    this->WriteObjectBuildStatement(*si);
+    }
+  if(!this->GeneratorTarget->ModuleDefinitionFile.empty())
+    {
+    this->ModuleDefinitionFile = this->ConvertToNinjaPath(
+      this->GeneratorTarget->ModuleDefinitionFile.c_str());
+    }
+
+  {
+  // Add object library contents as external objects.
+  std::vector<std::string> objs;
+  this->GeneratorTarget->UseObjectLibraries(objs);
+  for(std::vector<std::string>::iterator oi = objs.begin();
+      oi != objs.end(); ++oi)
+    {
+    this->Objects.push_back(ConvertToNinjaPath(oi->c_str()));
+    }
+  }
 
   this->GetBuildFileStream() << "\n";
 }
@@ -391,26 +433,10 @@ void
 cmNinjaTargetGenerator
 ::WriteObjectBuildStatement(cmSourceFile* source)
 {
-  if (cmCustomCommand *cc = source->GetCustomCommand())
-    this->GetLocalGenerator()->AddCustomCommandTarget(cc, this->GetTarget());
-
   cmNinjaDeps emptyDeps;
 
   std::string comment;
   const char* language = source->GetLanguage();
-  // If we cannot get the language this is probably a non-source file provided
-  // in the list (typically an header file).
-  if (!language) {
-    if (source->GetPropertyAsBool("EXTERNAL_OBJECT"))
-      this->Objects.push_back(this->GetSourceFilePath(source));
-    if(cmSystemTools::UpperCase(source->GetExtension()) == "DEF")
-      this->ModuleDefinitionFile = GetSourceFilePath(source);
-    return;
-  }
-
-  if (source->GetPropertyAsBool("HEADER_FILE_ONLY"))
-    return;
-
   std::string rule = this->LanguageCompilerRule(language);
 
   cmNinjaDeps outputs;
@@ -435,21 +461,16 @@ cmNinjaTargetGenerator
                    std::back_inserter(orderOnlyDeps), MapToNinjaPath());
   }
 
-  // Add order-only dependency on any header file with a custom command.
-  {
-    const std::vector<cmSourceFile*>& sources =
-      this->GetTarget()->GetSourceFiles();
-    for(std::vector<cmSourceFile*>::const_iterator si = sources.begin();
-        si != sources.end(); ++si) {
-      if (!(*si)->GetLanguage()) {
-        if (cmCustomCommand* cc = (*si)->GetCustomCommand()) {
-          const std::vector<std::string>& ccoutputs = cc->GetOutputs();
-          std::transform(ccoutputs.begin(), ccoutputs.end(),
-                         std::back_inserter(orderOnlyDeps), MapToNinjaPath());
-        }
-      }
+  // Add order-only dependencies on custom command outputs.
+  for(std::vector<cmSourceFile*>::const_iterator
+        si = this->GeneratorTarget->CustomCommands.begin();
+      si != this->GeneratorTarget->CustomCommands.end(); ++si)
+    {
+    cmCustomCommand const* cc = (*si)->GetCustomCommand();
+    const std::vector<std::string>& ccoutputs = cc->GetOutputs();
+    std::transform(ccoutputs.begin(), ccoutputs.end(),
+                   std::back_inserter(orderOnlyDeps), MapToNinjaPath());
     }
-  }
 
   // If the source file is GENERATED and does not have a custom command
   // (either attached to this source file or another one), assume that one of

@@ -20,6 +20,7 @@
 class cmTarget;
 class cmGlobalNinjaGenerator;
 class cmGeneratedFileStream;
+class cmGeneratorTarget;
 class cmMakefile;
 class cmSourceFile;
 class cmCustomCommand;
@@ -112,6 +113,7 @@ protected:
 
 private:
   cmTarget* Target;
+  cmGeneratorTarget* GeneratorTarget;
   cmMakefile* Makefile;
   cmLocalNinjaGenerator* LocalGenerator;
   /// List of object files for this target.

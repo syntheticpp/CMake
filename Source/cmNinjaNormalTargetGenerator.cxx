@@ -43,15 +43,29 @@ cmNinjaNormalTargetGenerator(cmTarget* target)
                             this->TargetNamePDB,
                             GetLocalGenerator()->GetConfigName());
 
-  // on Windows the output dir is already needed at compile time
-  // ensure the directory exists (OutDir test)
-  std::string outpath = target->GetDirectory(this->GetConfigName());
-  cmSystemTools::MakeDirectory(outpath.c_str());
+  if(target->GetType() != cmTarget::OBJECT_LIBRARY)
+    {
+    // on Windows the output dir is already needed at compile time
+    // ensure the directory exists (OutDir test)
+    EnsureDirectoryExists(target->GetDirectory(this->GetConfigName()));
+    }
 }
 
 cmNinjaNormalTargetGenerator::~cmNinjaNormalTargetGenerator()
 {
 }
+
+void cmNinjaNormalTargetGenerator::EnsureDirectoryExists(const std::string& dir)
+{
+  cmSystemTools::MakeDirectory(dir.c_str());
+}
+
+void cmNinjaNormalTargetGenerator::EnsureParentDirectoryExists(const std::string& path)
+{
+  EnsureDirectoryExists(cmSystemTools::GetParentDirectory(path.c_str()));
+}
+
+
 
 void cmNinjaNormalTargetGenerator::Generate()
 {
@@ -67,8 +81,15 @@ void cmNinjaNormalTargetGenerator::Generate()
   // Write the build statements
   this->WriteObjectBuildStatements();
 
-  this->WriteLinkRule();
-  this->WriteLinkStatement();
+  if(this->GetTarget()->GetType() == cmTarget::OBJECT_LIBRARY)
+    {
+    this->WriteObjectLibStatement();
+    }
+  else
+    {
+    this->WriteLinkRule();
+    this->WriteLinkStatement();
+    }
 
   this->GetBuildFileStream() << "\n";
   this->GetRulesFileStream() << "\n";
@@ -131,7 +152,8 @@ cmNinjaNormalTargetGenerator
     vars.CMTarget = this->GetTarget();
     vars.Language = this->TargetLinkLanguage;
     vars.Objects = "$in";
-    std::string objdir = this->GetLocalGenerator()->GetHomeRelativeOutputPath();
+    std::string objdir =
+      this->GetLocalGenerator()->GetHomeRelativeOutputPath();
     objdir += objdir.empty() ? "" : "/";
     objdir += cmake::GetCMakeFilesDirectoryPostSlash();
     objdir += this->GetTargetName();
@@ -369,13 +391,18 @@ void cmNinjaNormalTargetGenerator::WriteLinkStatement()
     }
   }
 
+  std::string path;
   if (!this->TargetNameImport.empty()) {
-    vars["TARGET_IMPLIB"] = this->GetLocalGenerator()->ConvertToOutputFormat(
-      targetOutputImplib.c_str(), cmLocalGenerator::SHELL);
+    path = this->GetLocalGenerator()->ConvertToOutputFormat(
+                    targetOutputImplib.c_str(), cmLocalGenerator::SHELL);
+    vars["TARGET_IMPLIB"] = path;
+    EnsureParentDirectoryExists(path);
   }
 
-  vars["TARGET_PDB"] = this->GetLocalGenerator()->ConvertToOutputFormat(
-    this->GetTargetPDB().c_str(), cmLocalGenerator::SHELL);
+  path = this->GetLocalGenerator()->ConvertToOutputFormat(
+                   this->GetTargetPDB().c_str(), cmLocalGenerator::SHELL);
+  vars["TARGET_PDB"] = path;
+  EnsureParentDirectoryExists(path);
 
   std::vector<cmCustomCommand> *cmdLists[3] = {
     &this->GetTarget()->GetPreBuildCommands(),
@@ -466,6 +493,24 @@ void cmNinjaNormalTargetGenerator::WriteLinkStatement()
   // Add aliases for the file name and the target name.
   this->GetGlobalGenerator()->AddTargetAlias(this->TargetNameOut,
                                              this->GetTarget());
+  this->GetGlobalGenerator()->AddTargetAlias(this->GetTargetName(),
+                                             this->GetTarget());
+}
+
+//----------------------------------------------------------------------------
+void cmNinjaNormalTargetGenerator::WriteObjectLibStatement()
+{
+  // Write a phony output that depends on all object files.
+  cmNinjaDeps outputs;
+  this->GetLocalGenerator()->AppendTargetOutputs(this->GetTarget(), outputs);
+  cmNinjaDeps depends = this->GetObjects();
+  cmGlobalNinjaGenerator::WritePhonyBuild(this->GetBuildFileStream(),
+                                          "Object library "
+                                          + this->GetTargetName(),
+                                          outputs,
+                                          depends);
+
+  // Add aliases for the target name.
   this->GetGlobalGenerator()->AddTargetAlias(this->GetTargetName(),
                                              this->GetTarget());
 }
