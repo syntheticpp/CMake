@@ -89,6 +89,7 @@
 #  CPACK_PACKAGE_FILE_NAME - The name of the package file to generate,
 #  not including the extension. For example, cmake-2.6.1-Linux-i686.
 #  The default value is
+#
 #  ${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${CPACK_SYSTEM_NAME}.
 ##end
 #
@@ -340,6 +341,10 @@ cpack_set_if_not_set(CPACK_RESOURCE_FILE_WELCOME
   "${CMAKE_ROOT}/Templates/CPack.GenericWelcome.txt")
 
 cpack_set_if_not_set(CPACK_MODULE_PATH "${CMAKE_MODULE_PATH}")
+
+IF(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL)
+  SET(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
+ENDIF(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL)
 
 IF(CPACK_NSIS_MODIFY_PATH)
   SET(CPACK_NSIS_MODIFY_PATH ON)

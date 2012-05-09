@@ -175,20 +175,22 @@ public:
                                 cmTarget::CustomCommandType type,
                                 const char* comment, const char* workingDir,
                                 bool escapeOldStyle = true);
-  void AddCustomCommandToOutput(const std::vector<std::string>& outputs,
-                                const std::vector<std::string>& depends,
-                                const char* main_dependency,
-                                const cmCustomCommandLines& commandLines,
-                                const char* comment, const char* workingDir,
-                                bool replace = false,
-                                bool escapeOldStyle = true);
-  void AddCustomCommandToOutput(const char* output,
-                                const std::vector<std::string>& depends,
-                                const char* main_dependency,
-                                const cmCustomCommandLines& commandLines,
-                                const char* comment, const char* workingDir,
-                                bool replace = false,
-                                bool escapeOldStyle = true);
+  cmSourceFile* AddCustomCommandToOutput(
+    const std::vector<std::string>& outputs,
+    const std::vector<std::string>& depends,
+    const char* main_dependency,
+    const cmCustomCommandLines& commandLines,
+    const char* comment, const char* workingDir,
+    bool replace = false,
+    bool escapeOldStyle = true);
+  cmSourceFile* AddCustomCommandToOutput(
+    const char* output,
+    const std::vector<std::string>& depends,
+    const char* main_dependency,
+    const cmCustomCommandLines& commandLines,
+    const char* comment, const char* workingDir,
+    bool replace = false,
+    bool escapeOldStyle = true);
   void AddCustomCommandOldStyle(const char* target,
                                 const std::vector<std::string>& outputs,
                                 const std::vector<std::string>& depends,
@@ -592,6 +594,9 @@ public:
 
   /** Return whether the target platform is 64-bit.  */
   bool PlatformIs64Bit() const;
+
+  /** Retrieve soname flag for the specified language if supported */
+  const char* GetSONameFlag(const char* language) const;
 
   /**
    * Get a list of preprocessor define flags.
