@@ -847,7 +847,7 @@ void cmLocalVisualStudio7Generator::WriteConfiguration(std::ostream& fout,
     // non-debug configurations because VS still creates .idb files.
     fout <<  "\t\t\t\tProgramDataBaseFileName=\""
          << this->ConvertToXMLOutputPathSingle(
-              target.GetDirectory(configName).c_str())
+              target.GetPDBDirectory(configName).c_str())
          << "/"
          << target.GetPDBName(configName) << "\"\n";
     }

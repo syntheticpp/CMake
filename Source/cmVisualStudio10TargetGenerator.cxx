@@ -1257,7 +1257,8 @@ void cmVisualStudio10TargetGenerator::WriteClOptions(
     {
     // TODO: PDB for object library?
     this->WriteString("<ProgramDataBaseFileName>", 3);
-    *this->BuildFileStream << this->Target->GetDirectory(configName.c_str())
+    *this->BuildFileStream << this->Target->
+                                GetPDBDirectory(configName.c_str())
                            << "/"
                            << this->Target->GetPDBName(configName.c_str())
                            << "</ProgramDataBaseFileName>\n";

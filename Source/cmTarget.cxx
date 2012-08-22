@@ -3020,6 +3020,16 @@ std::string cmTarget::GetPDBName(const char* config)
 }
 
 //----------------------------------------------------------------------------
+std::string cmTarget::GetPDBDirectory(const char* config)
+{
+  if (this->Makefile->GetDefinition("CMAKE_DEBUG_SYMBOL_DIRECTORY"))
+    {
+    return this->Makefile->GetDefinition("CMAKE_DEBUG_SYMBOL_DIRECTORY");
+    }
+  return this->GetDirectory(config);
+}
+
+//----------------------------------------------------------------------------
 bool cmTarget::HasSOName(const char* config)
 {
   // soname is supported only for shared libraries and modules,

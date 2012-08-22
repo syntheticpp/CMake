@@ -480,7 +480,12 @@ void cmNinjaNormalTargetGenerator::WriteLinkStatement()
     // TODO: Where to document?
     if (mf->GetDefinition("CMAKE_DEBUG_SYMBOL_SUFFIX"))
       dbg_suffix = mf->GetDefinition("CMAKE_DEBUG_SYMBOL_SUFFIX");
-    vars["TARGET_PDB"] = base + suffix + dbg_suffix;
+    std::string symDir = mf->GetSafeDefinition("CMAKE_DEBUG_SYMBOL_DIRECTORY");
+    if (!symDir.empty())
+      {
+        symDir += "/";
+      }
+    vars["TARGET_PDB"] = symDir + base + suffix + dbg_suffix;
     }
 
   if (mf->IsOn("CMAKE_COMPILER_IS_MINGW"))
