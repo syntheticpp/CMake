@@ -26,6 +26,10 @@
 #include "cmTest.h"
 #include "cmDocumentationFormatterText.h"
 
+#include "cmJsUtilities.h"
+
+
+
 #if defined(CMAKE_BUILD_WITH_CMAKE)
 # include "cmGraphVizWriter.h"
 # include "cmDependsFortran.h" // For -E cmake_copy_f90_mod callback.
@@ -122,6 +126,7 @@
 static bool cmakeCheckStampFile(const char* stampName);
 static bool cmakeCheckStampList(const char* stampName);
 
+
 void cmNeedBackwardsCompatibility(const std::string& variable,
   int access_type, void*, const char*, const cmMakefile*)
 {
@@ -200,10 +205,11 @@ cmake::cmake()
                             cmNeedBackwardsCompatibility);
 #endif
 
+
   this->AddDefaultGenerators();
   this->AddDefaultExtraGenerators();
   this->AddDefaultCommands();
-
+  
   // Make sure we can capture the build tool output.
   cmSystemTools::EnableVSConsoleOutput();
 }
@@ -333,6 +339,13 @@ void cmake::AddCommand(cmCommand* wg)
     this->Commands.erase(pos);
     }
   this->Commands.insert( RegisteredCommandsMap::value_type(name, wg));
+
+	// export to JavaScript
+	if (wg->GetMakefile() && wg->GetExposeToJavaScript())
+	{
+		std::string name = cmSystemTools::LowerCase(wg->GetName());
+		QScriptBind::registerGlobalFunction(wg->GetMakefile()->jsEngine(), name.c_str(), wg->JsFunction);
+	}
 }
 
 
@@ -758,6 +771,11 @@ void cmake::SetArgs(const std::vector<std::string>& args,
       std::cout << "Running with debug output on.\n";
       this->SetDebugOutputOn(true);
       }
+	else if(arg.find("--debug",0) == 0)
+      {
+      std::cout << "Staring debugger for JavaScript files.\n";
+      this->SetDebugOutputOn(true);
+      }
     else if(arg.find("--trace",0) == 0)
       {
       std::cout << "Running with trace output on.\n";
@@ -849,6 +867,12 @@ void cmake::SetDirectoriesFromFile(const char* arg)
     cacheFile += "/CMakeCache.txt";
     std::string listFile = path;
     listFile += "/CMakeLists.txt";
+    std::string jsListFile = path;
+    jsListFile += "/CMakeLists.js";
+    if(cmSystemTools::FileExists(jsListFile.c_str()))
+      {
+      listPath = path;
+      }
     if(cmSystemTools::FileExists(cacheFile.c_str()))
       {
       cachePath = path;
@@ -1902,6 +1926,7 @@ cmGlobalGenerator* cmake::CreateGlobalGenerator(const char* name)
   generator = (genIt->second)();
   generator->SetCMakeInstance(this);
   generator->SetExternalMakefileProjectGenerator(extraGenerator);
+
   return generator;
 }
 
@@ -1980,7 +2005,10 @@ int cmake::DoPreConfigureChecks()
   // Make sure the Start directory contains a CMakeLists.txt file.
   std::string srcList = this->GetHomeDirectory();
   srcList += "/CMakeLists.txt";
-  if(!cmSystemTools::FileExists(srcList.c_str()))
+  std::string jsSrcList = this->GetHomeDirectory();
+  jsSrcList += "/CMakeLists.js";
+  if(!cmSystemTools::FileExists(srcList.c_str()) &&
+     !cmSystemTools::FileExists(jsSrcList.c_str()))
     {
     cmOStringStream err;
     if(cmSystemTools::FileIsDirectory(this->GetHomeDirectory()))
@@ -2009,9 +2037,11 @@ int cmake::DoPreConfigureChecks()
     {
     std::string cacheStart =
       this->CacheManager->GetCacheValue("CMAKE_HOME_DIRECTORY");
-    cacheStart += "/CMakeLists.txt";
+    const std::string suffix = cmSystemTools::FileExists(jsSrcList.c_str())
+                         ? ".js" : ".txt";
+    cacheStart += "/CMakeLists" + suffix;
     std::string currentStart = this->GetHomeDirectory();
-    currentStart += "/CMakeLists.txt";
+    currentStart += "/CMakeLists" + suffix;
     if(!cmSystemTools::SameFile(cacheStart.c_str(), currentStart.c_str()))
       {
       std::string message = "The source \"";

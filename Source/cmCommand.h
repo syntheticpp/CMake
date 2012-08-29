@@ -17,6 +17,9 @@
 #include "cmMakefile.h"
 #include "cmCommandArgumentsHelper.h"
 
+#include <QScriptEngine>
+
+
 /** \class cmCommand
  * \brief Superclass for all commands in CMake.
  *
@@ -35,8 +38,7 @@ public:
   /**
    * Construct the command. By default it is enabled with no makefile.
    */
-  cmCommand()
-    {this->Makefile = 0; this->Enabled = true;}
+  cmCommand();
 
   /**
    * Need virtual destructor to destroy real command type.
@@ -183,9 +185,18 @@ public:
     this->Error += e;
     }
 
+  ///
+  bool GetExposeToJavaScript() { return this->ExposeToJs; };
+
+  ///
+  QScriptEngine::FunctionSignature JsFunction;
+
+
 protected:
   cmMakefile* Makefile;
   cmCommandArgumentsHelper Helper;
+
+  bool ExposeToJs;
 
 private:
   bool Enabled;

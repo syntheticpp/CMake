@@ -36,7 +36,7 @@
 
 #include <assert.h>
 
-cmGlobalGenerator::cmGlobalGenerator()
+cmGlobalGenerator::cmGlobalGenerator() 
 {
   // By default the .SYMBOLIC dependency is not needed on symbolic rules.
   this->NeedSymbolicMark = false;

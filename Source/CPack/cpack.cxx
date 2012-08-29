@@ -29,6 +29,8 @@
 #include <cmsys/SystemTools.hxx>
 #include <memory> // auto_ptr
 
+#include <QCoreApplication>
+
 //----------------------------------------------------------------------------
 static const char * cmDocumentationName[][3] =
 {
@@ -179,6 +181,8 @@ int cpackDefinitionArgument(const char* argument, const char* cValue,
 // this is CPack.
 int main (int argc, char *argv[])
 {
+  QCoreApplication app(argc, argv);
+
   cmSystemTools::FindExecutableDirectory(argv[0]);
   cmCPackLog log;
   int nocwd = 0;

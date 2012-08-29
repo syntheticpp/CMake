@@ -55,6 +55,8 @@ class cmGeneratedFileStream;
  * you must at a minimum redo steps 2 through 7.
  */
 
+
+
 class cmake
 {
  public:
@@ -382,6 +384,8 @@ class cmake
 
   void UnwatchUnusedCli(const char* var);
   void WatchUnusedCli(const char* var);
+
+
 protected:
   void RunCheckForUnusedVariables();
   void InitializeProperties();

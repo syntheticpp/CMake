@@ -168,7 +168,12 @@ void cmLocalGenerator::ReadInputFile()
 {
   // Look for the CMakeLists.txt file.
   std::string currentStart = this->Makefile->GetStartDirectory();
-  currentStart += "/CMakeLists.txt";
+  currentStart += "/CMakeLists.js";
+  if (!cmSystemTools::FileExists(currentStart.c_str()))
+    {
+    currentStart = this->Makefile->GetStartDirectory();
+    currentStart += "/CMakeLists.txt";
+    }
   if(cmSystemTools::FileExists(currentStart.c_str(), true))
     {
     this->Makefile->ReadListFile(currentStart.c_str());
@@ -240,6 +245,8 @@ void cmLocalGenerator::SetGlobalGenerator(cmGlobalGenerator *gg)
   this->GlobalGenerator = gg;
   this->Makefile = new cmMakefile;
   this->Makefile->SetLocalGenerator(this);
+
+  this->Makefile->InitializeJsCommands();
 
   // setup the home directories
   this->Makefile->GetProperties().SetCMakeInstance(gg->GetCMakeInstance());

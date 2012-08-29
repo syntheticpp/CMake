@@ -40,17 +40,39 @@
 #include <stack>
 #include <ctype.h> // for isspace
 
+#include "cmJsUtilities.h"
+
+#include <QFile>
+#include <QScriptClass>
+#include <QScriptClassPropertyIterator>
+#include <QCoreApplication>
+#include <QAction>
+#include <QScriptEngineDebugger>
+
+
 class cmMakefile::Internals
 {
 public:
   std::stack<cmDefinitions, std::list<cmDefinitions> > VarStack;
   std::stack<std::set<cmStdString> > VarInitStack;
   std::stack<std::set<cmStdString> > VarUsageStack;
+
+  QScriptEngine* JsEngine;
+  QScriptEngineDebugger* JsDebugger;
+  bool jsdebugger_enabled;
+  QScriptEngineAgent* JsDebuggerAgent;
+
 };
+
 
 // default is not to be building executables
 cmMakefile::cmMakefile(): Internal(new Internals)
 {
+  this->Internal->JsEngine = 0;
+  this->Internal->JsDebugger = 0;
+  this->Internal->jsdebugger_enabled = false;
+  this->Internal->JsDebuggerAgent = 0;
+
   const cmDefinitions& defs = cmDefinitions();
   const std::set<cmStdString> globalKeys = defs.LocalKeys();
   this->Internal->VarStack.push(defs);
@@ -146,6 +168,264 @@ cmMakefile::cmMakefile(const cmMakefile& mf): Internal(new Internals)
   this->ListFileStack = mf.ListFileStack;
 }
 
+class PropertyAccessPropertyIterator : public QScriptClassPropertyIterator
+{
+public:
+    PropertyAccessPropertyIterator(const QScriptValue &object);
+    ~PropertyAccessPropertyIterator();
+
+    bool hasNext() const;
+    void next();
+
+    bool hasPrevious() const;
+    void previous();
+
+    void toFront();
+    void toBack();
+
+    QScriptString name() const;
+    uint id() const;
+
+private:
+    QScriptValueIterator* it;
+};
+
+
+class PropertyAccess : public QScriptClass
+{
+public:
+  PropertyAccess(QScriptEngine* engine, cmMakefile* m);
+
+  QueryFlags queryProperty(const QScriptValue &object, const QScriptString &name, QueryFlags flags, uint *id);
+
+  QScriptValue property(const QScriptValue &object, const QScriptString &name, uint id);
+
+  void setProperty(QScriptValue &object, const QScriptString &name, uint id, const QScriptValue &value);
+
+  QScriptValue::PropertyFlags propertyFlags(const QScriptValue &object, const QScriptString &name, uint id);
+
+  QScriptClassPropertyIterator *newIterator(const QScriptValue &object);
+
+private:
+  cmMakefile* makefile;
+  QScriptValue global;
+  QScriptValue used_cmake_strings;
+};
+
+
+PropertyAccess::PropertyAccess(QScriptEngine* engine, cmMakefile* m) : QScriptClass(engine), makefile(m)
+{
+  global = engine->globalObject();
+  QScriptValue cmake_strings = engine->newObject();
+  used_cmake_strings = engine->newObject();
+  global.setProperty("CMAKE_STRINGS", cmake_strings);
+  cmake_strings.setProperty("USED_CMAKE_STRINGS", used_cmake_strings);
+}
+
+
+QScriptClass::QueryFlags PropertyAccess::queryProperty(const QScriptValue &object, const QScriptString &name, QueryFlags flags, uint *id)
+{
+  return HandlesReadAccess | HandlesWriteAccess;
+}
+
+
+QScriptValue PropertyAccess::property(const QScriptValue &object, const QScriptString &name, uint id)
+{
+  const QString qname = name.toString();
+  const QByteArray namebytes = qname.toLatin1();
+  const char* n = namebytes.constData();
+
+  const char* value = makefile->GetDefinition(n);
+  if (value != 0) {
+    const QString qvalue = QString::fromLatin1(value);
+    QScriptValue svalue;
+    if (qvalue == "0" || qvalue == "FALSE" || qvalue == "OFF") {
+      svalue = QScriptValue(false);
+    } else {
+      svalue = QScriptValue(qvalue);
+    }
+    // show in debugger
+    used_cmake_strings.setProperty(qname, svalue);
+    return svalue;
+  } else {
+    QScriptValue val = global.property(qname);
+    if (val.isValid()) {
+      return val;
+    } else {
+      //printf("Variable '%s' not found returning false\n", n);
+      return QScriptValue(false);
+    }
+  }
+}
+
+
+void PropertyAccess::setProperty(QScriptValue &object, const QScriptString &name, uint id, const QScriptValue &value)
+{
+  const QString qname = name.toString();
+
+  if (value.isString()) {
+    const QByteArray namebytes = qname.toLatin1();
+    const char* n = namebytes.constData();
+    const QByteArray valuebytes = value.toString().toLatin1();
+    const char* v = valuebytes.constData();
+    used_cmake_strings.setProperty(qname, value);
+    makefile->AddDefinition(n, v);
+  } else {
+    global.setProperty(qname, value);
+  }
+}
+
+
+QScriptValue::PropertyFlags PropertyAccess::propertyFlags(const QScriptValue &object, const QScriptString &name, uint id)
+{
+  return QScriptValue::Undeletable;
+}
+
+QScriptClassPropertyIterator *PropertyAccess::newIterator(const QScriptValue &object)
+{
+  return new PropertyAccessPropertyIterator(global);
+}
+
+//----------------------------------------------------------------------------
+
+PropertyAccessPropertyIterator::PropertyAccessPropertyIterator(const QScriptValue &global)
+    : QScriptClassPropertyIterator(global), it(0)
+{
+  // TODO show USED_CMAKE_STRINGS with entries, only property("CMAKE_STRINGS") does not work
+    it = new QScriptValueIterator(global.property("CMAKE_STRINGS").property("USED_CMAKE_STRINGS"));
+    toFront();
+}
+
+PropertyAccessPropertyIterator::~PropertyAccessPropertyIterator()
+{
+  delete it;
+  it = 0;
+}
+
+bool PropertyAccessPropertyIterator::hasNext() const
+{
+  return it->hasNext();
+}
+
+void PropertyAccessPropertyIterator::next()
+{
+    it->next();
+}
+
+bool PropertyAccessPropertyIterator::hasPrevious() const
+{
+    return it->hasPrevious();
+}
+
+void PropertyAccessPropertyIterator::previous()
+{
+  return it->previous();
+}
+
+void PropertyAccessPropertyIterator::toFront()
+{
+  it->toFront();
+}
+
+void PropertyAccessPropertyIterator::toBack()
+{
+  it->toBack();
+}
+
+QScriptString PropertyAccessPropertyIterator::name() const
+{
+    return it->scriptName();
+}
+
+uint PropertyAccessPropertyIterator::id() const
+{
+    return 0;
+}
+
+
+
+//----------------------------------------------------------------------------550
+void cmMakefile::InitializeJsEngine()
+{
+  // setup JavaScript engine
+  this->Internal->JsEngine = new QScriptEngine;
+  this->Internal->JsDebugger = new QScriptEngineDebugger;;
+  this->Internal->JsDebugger->attachTo(this->Internal->JsEngine);
+  this->Internal->JsDebuggerAgent = this->Internal->JsEngine->agent();
+  if (QCoreApplication::instance()->arguments().contains("--debug")
+    || QCoreApplication::instance()->arguments().contains("debugger")) {
+    this->Internal->JsDebugger->action(QScriptEngineDebugger::InterruptAction)->trigger();
+    this->Internal->jsdebugger_enabled = true;
+  } else {
+    this->Internal->jsdebugger_enabled = false;
+  }
+
+  // don't show debugger for interal scripts
+  setJsDebuggerEnabled(false);
+
+  QScriptEngine* engine = jsEngine();
+  PropertyAccess* makefile = new PropertyAccess(engine, this);
+  engine->setGlobalObject(engine->newObject(makefile, engine->globalObject()));
+}
+
+QScriptEngine* cmMakefile::jsEngine()
+{
+  return this->Internal->JsEngine;
+}
+
+void cmMakefile::InitializeJsCommands()
+{
+  if (GetCMakeInstance())
+  {
+    // export to JavaScript
+    cmake::RegisteredCommandsMap* cmds = GetCMakeInstance()->GetCommands();
+    for(cmake::RegisteredCommandsMap::iterator j = cmds->begin(); j != cmds->end(); ++j)
+    {
+      cmCommand* cmd = j->second;
+      if (cmd->GetExposeToJavaScript())
+      {
+        std::string name = cmSystemTools::LowerCase(cmd->GetName());
+        QScriptBind::registerGlobalFunction(this->jsEngine(), name.c_str(), cmd->JsFunction);
+      }
+    }
+  }
+ }
+
+
+ int cmMakefile::RunJsFile(const std::string& filename)
+ {
+  if (!filename.empty() && GetCMakeInstance())
+  {
+    QFile file(filename.c_str());
+    if (file.open(QIODevice::ReadOnly | QIODevice::Text))
+     {
+      QScriptEngine* engine = jsEngine();
+      setJsDebuggerEnabled(true);
+      engine->evaluate(file.readAll());
+      setJsDebuggerEnabled(false);
+      if (!engine->hasUncaughtException())
+      {
+        return 0;
+       }
+     }
+  }
+  return 1;
+ }
+
+void cmMakefile::setJsDebuggerEnabled(bool val)
+{
+  if (this->Internal->jsdebugger_enabled) {
+    if (this->Internal->JsEngine && this->Internal->JsDebugger) {
+      if (val) {
+        this->Internal->JsEngine->setAgent(this->Internal->JsDebuggerAgent);
+      } else {
+        this->Internal->JsEngine->setAgent(0);
+      }
+    }
+  }
+}
+
+
 //----------------------------------------------------------------------------
 void cmMakefile::Initialize()
 {
@@ -162,6 +442,8 @@ void cmMakefile::Initialize()
   // By default the check is not done.  It is enabled by
   // cmListFileCache in the top level if necessary.
   this->CheckCMP0000 = false;
+
+  this->InitializeJsEngine();
 }
 
 unsigned int cmMakefile::GetCacheMajorVersion()
@@ -226,6 +508,11 @@ cmMakefile::~cmMakefile()
     cmSystemTools::Error("Internal CMake Error, Policy Stack has not been"
       " popped properly");
   }
+
+  delete this->Internal->JsEngine;
+  this->Internal->JsEngine = 0;
+  delete this->Internal->JsDebugger;
+  this->Internal->JsDebugger = 0;
 }
 
 void cmMakefile::PrintStringVector(const char* s,
@@ -613,9 +900,12 @@ bool cmMakefile::ReadListFile(const char* filename_in,
       }
     }
 
+  bool endScopeNicely = false;
+
   // keep track of the current file being read
   if (filename)
     {
+    endScopeNicely = true;
     if(this->cmCurrentListFile != filename)
       {
       this->cmCurrentListFile = filename;
@@ -657,6 +947,51 @@ bool cmMakefile::ReadListFile(const char* filename_in,
     {
     *fullPath=filenametoread;
     }
+
+  // *** start of listfile code
+  // *** Here is the core listfile reading code ***
+  // is it a JavaScript file ?
+  if (cmSystemTools::GetFilenameLastExtension(filenametoread) == ".js" && GetCMakeInstance())
+    {
+    this->ListFiles.push_back(filenametoread);
+
+  QScriptEngine* engine = jsEngine();
+
+    // get the current makefile setting
+  QScriptValue previousMF = engine->globalObject().property("cmCurrentMakefile");
+
+    // make sure the current Makefile is set   // TODO check ownership
+  QScriptValue jsvalue = QScriptBind::scriptValueFromValue<cmMakefile*>(engine, this);
+  engine->globalObject().setProperty("cmCurrentMakefile", jsvalue);
+
+    // load and run script
+  int errors = RunJsFile(filenametoread);
+
+    // restore the prior makefile setting
+  engine->globalObject().setProperty("cmCurrentMakefile", previousMF);
+
+
+    if (errors)
+      {
+    QString msg = "Error when processing JavaScript code\n";
+    msg += engine->uncaughtExceptionBacktrace().join("\n");
+
+      cmSystemTools::Error(qPrintable(msg));
+
+      // pop the listfile off the stack
+      this->ListFileStack.pop_back();
+      if(fullPath!=0)
+        {
+        *fullPath = "";
+        }
+      this->AddDefinition("CMAKE_PARENT_LIST_FILE", currentParentFile.c_str());
+      this->AddDefinition("CMAKE_CURRENT_LIST_FILE", currentFile.c_str());
+      return false;
+      }
+    }
+  else
+    {
+
   cmListFile cacheFile;
   if( !cacheFile.ParseFile(filenametoread, requireProjectCommand, this) )
     {
@@ -703,6 +1038,10 @@ bool cmMakefile::ReadListFile(const char* filename_in,
       }
     }
   }
+
+  }
+  // *** end of listfile code
+
 
   // If this is the directory-level CMakeLists.txt file then perform
   // some extra checks.
@@ -769,6 +1108,7 @@ void cmMakefile::EnforceDirectoryLevelRules()
 
 void cmMakefile::AddCommand(cmCommand* wg)
 {
+  wg->SetMakefile(this);
   this->GetCMakeInstance()->AddCommand(wg);
 }
 
@@ -1483,6 +1823,8 @@ void cmMakefile::InitializeFromParent()
   // Initialize definitions with the closure of the parent scope.
   this->Internal->VarStack.top() = parent->Internal->VarStack.top().Closure();
 
+  // JS TODO what to do here?
+
   // copy include paths
   this->SetProperty("INCLUDE_DIRECTORIES",
                     parent->GetProperty("INCLUDE_DIRECTORIES"));
@@ -1681,8 +2023,15 @@ bool cmMakefile::IsSystemIncludeDirectory(const char* dir)
           this->SystemIncludeDirectories.end());
 }
 
+void cmMakefile::JsAddDefinition(const char* name, const char* value)
+{
+  AddDefinition(name, value);
+}
+
 void cmMakefile::AddDefinition(const char* name, const char* value)
 {
+  QScriptBind::exportDefinitionToJs(jsEngine(), name);
+
   if (!value )
     {
     return;
@@ -1723,6 +2072,8 @@ void cmMakefile::AddCacheDefinition(const char* name, const char* value,
                                     cmCacheManager::CacheEntryType type,
                                     bool force)
 {
+  QScriptBind::exportDefinitionToJs(jsEngine(), name);
+
   const char* val = value;
   cmCacheManager::CacheIterator it =
     this->GetCacheManager()->GetCacheIterator(name);
@@ -2120,7 +2471,6 @@ void cmMakefile::AddExtraDirectory(const char* dir)
   this->AuxSourceDirectories.push_back(dir);
 }
 
-
 // expand CMAKE_BINARY_DIR and CMAKE_SOURCE_DIR in the
 // include and library directories.
 
@@ -2276,6 +2626,11 @@ bool cmMakefile::IsDefinitionSet(const char* name) const
     }
 #endif
   return def?true:false;
+}
+
+const char* cmMakefile::JsGetDefinition(const char* name) const
+{
+	return GetDefinition(name);
 }
 
 const char* cmMakefile::GetDefinition(const char* name) const

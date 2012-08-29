@@ -114,8 +114,11 @@ set(SRCS
   cmStandardIncludes.cxx
   cmArchiveWrite.cxx
   cmBootstrapCommands.cxx
+  cmJsCommand.cxx
   cmCacheManager.cxx
   cmCacheManager.h
+  cmCommand.cxx
+  cmCommand.h
   cmCommands.cxx
   cmCommands.h
   cmCommandArgumentLexer.cxx
@@ -211,6 +214,8 @@ set(SRCS
   cmLocalGenerator.cxx
   cmLocalGenerator.h
   cmLocalUnixMakefileGenerator3.cxx
+  cmJsUtilities.h
+  cmJsUtilities.cxx
   cmMakeDepend.cxx
   cmMakeDepend.h
   cmMakefile.cxx
@@ -385,7 +390,8 @@ add_library(CMakeLib ${SRCS})
 target_link_libraries(CMakeLib cmsys
   ${CMAKE_EXPAT_LIBRARIES} ${CMAKE_ZLIB_LIBRARIES}
   ${CMAKE_TAR_LIBRARIES} ${CMAKE_COMPRESS_LIBRARIES}
-  ${CMAKE_CURL_LIBRARIES} )
+  ${CMAKE_CURL_LIBRARIES}
+  ${QT_LIBRARIES} ${QT_QTMAIN_LIBRARY})
 
 # On Apple we need CoreFoundation
 if(APPLE)

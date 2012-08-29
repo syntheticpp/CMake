@@ -67,6 +67,7 @@
 #include "cmInstallCommandArguments.cxx"
 #include "cmInstallCommand.cxx"
 #include "cmInstallTargetsCommand.cxx"
+#include "cmJsCommand.h"
 #include "cmLinkDirectoriesCommand.cxx"
 #include "cmListCommand.cxx"
 #include "cmMacroCommand.cxx"
@@ -142,6 +143,7 @@ void GetBootstrapCommands(std::list<cmCommand*>& commands)
   commands.push_back(new cmInstallCommand);
   commands.push_back(new cmInstallFilesCommand);
   commands.push_back(new cmInstallTargetsCommand);
+  commands.push_back(new cmJsCommand);
   commands.push_back(new cmLinkDirectoriesCommand);
   commands.push_back(new cmListCommand);
   commands.push_back(new cmMacroCommand);

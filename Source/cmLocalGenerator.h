@@ -390,6 +390,7 @@ protected:
   /** Read the input CMakeLists.txt file.  */
   void ReadInputFile();
 
+  friend class cmGlobalGenerator;
   cmMakefile *Makefile;
   cmGlobalGenerator *GlobalGenerator;
   // members used for relative path function ConvertToMakefilePath

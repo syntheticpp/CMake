@@ -28,6 +28,8 @@ class cmTargetExport;
 class cmInstallTargetGenerator;
 class cmInstallFilesGenerator;
 
+class QScriptEngine;
+
 /** \class cmGlobalGenerator
  * \brief Responable for overseeing the generation process for the entire tree
  *
@@ -40,6 +42,7 @@ public:
   ///! Free any memory allocated with the GlobalGenerator
   cmGlobalGenerator();
   virtual ~cmGlobalGenerator();
+
 
   ///! Create a local generator appropriate to this Global Generator
   virtual cmLocalGenerator *CreateLocalGenerator();

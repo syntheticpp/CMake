@@ -25,6 +25,9 @@
 #include "cmLocalGenerator.h"
 #include "cmMakefile.h"
 
+#include <QApplication>
+
+
 #ifdef CMAKE_BUILD_WITH_CMAKE
 //----------------------------------------------------------------------------
 static const char * cmDocumentationName[][3] =
@@ -329,6 +332,8 @@ static void cmakemainProgressCallback(const char *m, float prog,
 
 int main(int ac, char** av)
 {
+  QApplication app(ac, av);
+
   cmSystemTools::EnableMSVCDebugHook();
   cmSystemTools::FindExecutableDirectory(av[0]);
   if(ac > 1 && strcmp(av[1], "--build") == 0)

@@ -16,10 +16,56 @@
 #include "cmPropertyDefinition.h"
 
 //----------------------------------------------------------------------------
+#include "cmJsUtilities.h"
+
+
+static QScriptValue cmGetPropertyJs(QScriptContext *context, QScriptEngine *engine)
+{
+/*
+clobe from cmCommand.cxx
+  // build a list file function
+  cmListFileFunction lff;
+  cmExecutionStatus status;
+
+  QString functionname =context->callee().data().toString();
+  lff.Name = functionname.toStdString();
+
+  // stick in a temp var
+  lff.Arguments.push_back(cmListFileArgument("__GET_PROPERTY_JS_TEMP", false, 0, 0));
+
+  // TODO use array
+  int argCount = context->argumentCount();
+  for (int i = 0; i < argCount; i++)
+  {
+    std::string arg = context->argument(i).toString().toStdString();
+    lff.Arguments.push_back(cmListFileArgument(arg, false, 0, 0));
+  }
+
+  // get the current makefile
+  QScriptValue jsvalue = engine->globalObject().property("cmCurrentMakefile");
+  cmMakefile *makefile = QScriptBind::valueFromScriptValue<cmMakefile*>(jsvalue);
+
+  // pass it to ExecuteCommand
+  if (!makefile->ExecuteCommand(lff, status)) {
+    context->throwError("Error when calling function: " + functionname);
+  }
+
+
+  // get the return value
+  const char *result = makefile->GetDefinition("__GET_PROPERTY_JS_TEMP");
+
+  return QScriptValue(QString(result));
+*/
+  return QScriptValue();
+}
+
+// special JS code
 cmGetPropertyCommand::cmGetPropertyCommand()
 {
   this->InfoType = OutValue;
+  this->JsFunction = cmGetPropertyJs;
 }
+
 
 //----------------------------------------------------------------------------
 bool cmGetPropertyCommand

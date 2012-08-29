@@ -42,6 +42,10 @@ class cmake;
 class cmMakefileCall;
 class cmCMakePolicyCommand;
 
+class QScriptEngine;
+class QScriptEngineDebugger;
+class QScriptEngineAgent;
+
 /** \class cmMakefile
  * \brief Process the input CMakeLists.txt file.
  *
@@ -54,6 +58,10 @@ class cmMakefile
   class Internals;
   cmsys::auto_ptr<Internals> Internal;
 public:
+  /// return the JavaScript engine
+  QScriptEngine* jsEngine();
+  void setJsDebuggerEnabled(bool);
+
   /**
    * Return the major and minor version of the cmake that
    * was used to write the currently loaded cache, note
@@ -84,6 +92,18 @@ public:
    * Destructor.
    */
   ~cmMakefile();
+
+
+  /**
+   * Make member function visible in JS
+  */
+  void InitializeJsEngine();
+
+  void InitializeJsCommands();
+
+  /*
+  */
+  int RunJsFile(const std::string& filename);
 
   /**
    * Read and parse a CMakeLists.txt file.
@@ -290,6 +310,7 @@ public:
    * can be used in CMake to refer to lists, directories, etc.
    */
   void AddDefinition(const char* name, const char* value);
+  void JsAddDefinition(const char* name, const char* value);
   ///! Add a definition to this makefile and the global cmake cache.
   void AddCacheDefinition(const char* name, const char* value,
                           const char* doc,
@@ -576,6 +597,7 @@ public:
    * cache is then queried.
    */
   const char* GetDefinition(const char*) const;
+  const char* JsGetDefinition(const char*) const;
   const char* GetSafeDefinition(const char*) const;
   const char* GetRequiredDefinition(const char* name) const;
   bool IsDefinitionSet(const char*) const;

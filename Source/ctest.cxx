@@ -19,6 +19,8 @@
 #include "CTest/cmCTestScriptHandler.h"
 #include "CTest/cmCTestLaunch.h"
 
+#include <QCoreApplication>
+
 //----------------------------------------------------------------------------
 static const char * cmDocumentationName[][3] =
 {
@@ -263,6 +265,7 @@ static const char * cmDocumentationSeeAlso[][3] =
 // this is a test driver program for cmCTest.
 int main (int argc, char *argv[])
 {
+  QCoreApplication app(argc, argv);
   cmSystemTools::DoNotInheritStdPipes();
   cmSystemTools::EnableMSVCDebugHook();
   cmSystemTools::FindExecutableDirectory(argv[0]);
