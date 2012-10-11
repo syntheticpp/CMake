@@ -437,6 +437,13 @@ void cmSourceFile::DefineProperties(cmake *cm)
      "It will still be linked into the target though.");
 
   cm->DefineProperty
+    ("EXTERNAL_SOURCE", cmProperty::SOURCE_FILE,
+     "If set to true then this is a source file.",
+     "If this property is set to true then file is a source file"
+     "and will be compiled but it will not be linked into the target");
+
+
+  cm->DefineProperty
     ("Fortran_FORMAT", cmProperty::SOURCE_FILE,
      "Set to FIXED or FREE to indicate the Fortran source layout.",
      "This property tells CMake whether a given Fortran source file "
@@ -529,6 +536,12 @@ void cmSourceFile::DefineProperties(cmake *cm)
      "If the generated header file is created by another target, an "
      "inter-target dependency should be created with the add_dependencies "
      "command (if one does not already exist due to linking relationships).");
+
+  cm->DefineProperty
+    ("OBJECT_LOCATION", cmProperty::SOURCE_FILE,
+     "Path to output file name.",
+     "The output will be created at the given path."
+     "A relative path is interpreted as relative to CMAKE_BINARY_DIR.");
 
   cm->DefineProperty
     ("OBJECT_OUTPUTS", cmProperty::SOURCE_FILE,
