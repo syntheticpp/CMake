@@ -104,7 +104,8 @@ public:
                                const std::string& comment,
                                const cmNinjaDeps& outputs,
                                const cmNinjaDeps& deps = cmNinjaDeps(),
-                             const cmNinjaDeps& orderOnlyDeps = cmNinjaDeps());
+                               const cmNinjaDeps& orderDeps = cmNinjaDeps(),
+                               const std::string& pool = std::string());
   void WriteMacOSXContentBuild(const std::string& input,
                                const std::string& output);
 

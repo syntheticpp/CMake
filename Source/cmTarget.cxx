@@ -1538,6 +1538,18 @@ void cmTarget::DefineProperties(cmake *cm)
     ("RUNTIME_OUTPUT_NAME_<CONFIG>", cmProperty::TARGET,
      "Per-configuration output name for RUNTIME target files.",
      "This is the configuration-specific version of RUNTIME_OUTPUT_NAME.");
+
+  cm->DefineProperty
+    ("LINK_POOL", cmProperty::TARGET,
+     "Ninja only: Pool which should be used when linking the target",
+     "The number of parallel link process could be limited by setting"
+     "the global POOLS property and specifing here the pool name.");
+
+  cm->DefineProperty
+    ("COMPILE_POOL", cmProperty::TARGET,
+     "Ninja only: Pool which should be used when compiling sources",
+     "The number of parallel compile process could be limited by setting"
+     "the global POOLS property and specifing here the pool name.");
 }
 
 void cmTarget::SetType(TargetType type, const char* name)
