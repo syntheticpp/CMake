@@ -132,13 +132,16 @@ public:
     mutable std::set<std::string> ExpectedResxHeaders;
     mutable std::vector<cmSourceFile const*> ResxSources;
   };
+
+  mutable std::map<cmSourceFile const*, std::string> Objects;
+
+
 private:
   friend class cmTargetTraceDependencies;
   struct SourceEntry { std::vector<cmSourceFile*> Depends; };
   typedef std::map<cmSourceFile const*, SourceEntry> SourceEntriesType;
   SourceEntriesType SourceEntries;
 
-  mutable std::map<cmSourceFile const*, std::string> Objects;
   std::set<cmSourceFile const*> ExplicitObjectName;
   mutable std::map<std::string, std::vector<std::string> > SystemIncludesCache;
 
